@@ -10,7 +10,7 @@ import io
 import json
 import os
 import sqlite3
-import urllib.request
+import requests
 from pathlib import Path
 
 import librosa
@@ -245,16 +245,14 @@ class DatasetsFactory:
         self._sync(refresh_json_file=True)
 
     def _download_file(self, url: str, filepath: Path, desc=None):
-        response = urllib.request.urlopen(url)
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
         total_size = int(response.headers.get("content-length", 0))
         block_size = 1024 * 8
 
         with tqdm(total=total_size, unit="B", unit_scale=True, desc=desc) as pbar:
             with open(filepath, "wb") as f:
-                while True:
-                    buffer = response.read(block_size)
-                    if not buffer:
-                        break
+                for buffer in response.iter_content(block_size):
                     f.write(buffer)
                     pbar.update(len(buffer))
 
