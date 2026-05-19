@@ -9,25 +9,27 @@ __all__ = ['AudioSplitsDataset', 'DatasetsFactory']
 import io
 import json
 import os
-import sqlite3
 import requests
+import sqlite3
 from pathlib import Path
+from typing import Literal
 
 import librosa
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import soundfile as sf
 import pandas as pd
+import soundfile as sf
 import torch
-from IPython.display import display, Audio
+import torchaudio
+import torchaudio.transforms as T
+from IPython.display import Audio, display
 from torch.utils.data import Dataset
 from tqdm.auto import tqdm
 
 # %% ../../nbs/00_core.ipynb #899f1412
 class AudioSplitsDataset(Dataset):
 
-    SPECTROGRAM_MAX_FREQUENCY = 8_000  # Hz
     LABELS_EMOTIONS = [
         "frustrated",
         "angry",
@@ -39,26 +41,50 @@ class AudioSplitsDataset(Dataset):
         "surprise",
         "happy",
     ]
+    TOP_DB = 80
 
     def __init__(
         self,
         df_dataset_audio_splits: pd.DataFrame,
         db_path: Path,
+        sample_rate: int,
+        split_threshold_seconds: float,
         n_fft: int,
         hop_length: int,
         win_length: int,
         n_mels: int,
-        split_threshold_seconds: float,
-        sample_rate: int,
+        melspec_lib: Literal["torchaudio", "librosa"] = "torchaudio",
     ):
         self.df_dataset_audio_splits = df_dataset_audio_splits
         self.db_path = db_path
+        self.sample_rate = sample_rate
+        self.split_threshold_seconds = split_threshold_seconds
         self.n_fft = n_fft
         self.hop_length = hop_length
         self.win_length = win_length
         self.n_mels = n_mels
-        self.split_threshold_seconds = split_threshold_seconds
-        self.sample_rate = sample_rate
+        self.melspec_lib = melspec_lib
+
+        self.max_frequency = self.sample_rate / 2
+        self.max_split_sample_frames = int(split_threshold_seconds * sample_rate)
+        self.max_mel_timeframes = self.max_split_sample_frames / self.hop_length + 1
+
+        # Torch audio transforms
+        self.mel_spectrogram_transform = T.MelSpectrogram(
+            sample_rate=sample_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            center=True,
+            pad_mode="reflect",
+            power=2.0,
+            norm='slaney',
+            n_mels=n_mels,
+            mel_scale="htk",
+            f_max=self.max_frequency,
+        )
+        self.amp_to_db_transform = T.AmplitudeToDB(stype="power", top_db=self.TOP_DB)
+
         self.conn = None
 
     def __len__(self):
@@ -70,23 +96,39 @@ class AudioSplitsDataset(Dataset):
 
         audio_array, sr = self.get_item_audio_bytes(idx)
 
-        # Calculate log mel spectrogram
-        mel_spec = librosa.feature.melspectrogram(
-            y=audio_array,
-            sr=sr,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            n_mels=self.n_mels,
-            fmax=self.SPECTROGRAM_MAX_FREQUENCY,
-        )
-        # Convert power scale → log scale (closer to human hearing)
-        log_mel_spec = librosa.power_to_db(mel_spec, ref=np.max)
+        if self.melspec_lib == "librosa":
+            # Calculate log mel spectrogram
+            mel_spec = librosa.feature.melspectrogram(
+                y=audio_array,
+                sr=sr,
+                n_fft=self.n_fft,
+                hop_length=self.hop_length,
+                win_length=self.win_length,
+                n_mels=self.n_mels,
+                fmax=self.max_frequency,
+            )
 
-        features = torch.tensor(log_mel_spec, dtype=torch.float32)
+            # Convert power scale → log scale (closer to human hearing)
+            log_mel_spec = librosa.power_to_db(mel_spec, ref=np.max)
+            features = torch.tensor(log_mel_spec, dtype=torch.float32)
+        else:
+            audio_tensor = torch.tensor(audio_array, dtype=torch.float32)
 
-        row = self.df_dataset_audio_splits.iloc[idx]
-        labels = self._build_labels_tensor(row)
+            # torchaudio expects (channels, time)
+            audio_tensor = audio_tensor.unsqueeze(0) # mono
+
+            mel_specs = self.mel_spectrogram_transform(audio_tensor)
+
+            # Get the mel matrix for the only channel and
+            # convert power scale → log scale (closer to human hearing)
+            features = self.amp_to_db_transform(mel_specs[0])
+            features = features - features.max()  # now in (-80, 0] like librosa
+
+        labels = self._build_labels_tensor(dataset_row)
+
+        assert features.shape[0] == self.n_mels
+        assert features.shape[1] == self.max_mel_timeframes
+        assert len(labels) == len(self.LABELS_EMOTIONS)
 
         return features, labels
 
@@ -104,10 +146,11 @@ class AudioSplitsDataset(Dataset):
         end = int(dataset_row["end_sample_offset"])
         sliced_audio = audio_array[start:end]
 
-        if dataset_row["should_add_padding"]:
-            max_length = int(self.split_threshold_seconds * self.sample_rate)
-            if len(sliced_audio) < max_length:
-                sliced_audio = np.pad(sliced_audio, (0, max_length - len(sliced_audio)))
+        # Padding or trimming
+        if len(sliced_audio) < self.max_split_sample_frames:
+            sliced_audio = np.pad(sliced_audio, (0, self.max_split_sample_frames - len(sliced_audio)))
+
+        assert len(sliced_audio) == self.max_split_sample_frames
 
         return sliced_audio, sr
 
@@ -288,10 +331,10 @@ class DatasetsFactory:
         return AudioSplitsDataset(
             df_dataset_audio_splits=df,
             db_path=self.db_path,
+            sample_rate=group["sample_rate"],
+            split_threshold_seconds=group["split_threshold_seconds"],
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
             n_mels=n_mels,
-            split_threshold_seconds=group["split_threshold_seconds"],
-            sample_rate=group["sample_rate"],
         )

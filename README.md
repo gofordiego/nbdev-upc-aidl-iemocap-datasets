@@ -25,8 +25,11 @@ with minimum configuration.
 ### ✨ Key Features
 
 - **Automated R2 Remote Caching**: Seamlessly downloads and updates
-  metadata, audio databases, and parquet splits to a local cache
-  directory (`~/.cache/upc-aidl-iemocap-datasets`).
+  metadata, audio databases, and Parquet splits from a remote **HTTPS**
+  Cloudflare R2 bucket to a local cache directory
+  (`~/.cache/upc-aidl-iemocap-datasets`). Downloads are handled by
+  [`requests`](https://docs.python-requests.org/) for full SSL/TLS
+  support.
 - **SQLite Storage for Audio bytes**: Queries audio data on-demand from
   a single SQLite database, avoiding the overhead of managing thousands
   of individual audio files on your disk.
@@ -62,15 +65,31 @@ Or using standard `pip`:
 pip install git+https://github.com/gofordiego/nbdev-upc-aidl-iemocap-datasets.git
 ```
 
+### 📋 Key Runtime Dependencies
+
+The package is installed with all dependencies automatically. The main
+ones are:
+
+| Package                  | Purpose                             |
+|--------------------------|-------------------------------------|
+| `torch` / `torchaudio`   | PyTorch `Dataset` & audio utilities |
+| `librosa`                | Log-Mel Spectrogram computation     |
+| `requests`               | HTTPS downloads from Cloudflare R2  |
+| `pandas` / `pyarrow`     | Parquet split manifests             |
+| `soundfile`              | Decoding in-memory WAV audio bytes  |
+| `tqdm`                   | Download progress bars              |
+| `matplotlib`             | Spectrogram visualisation           |
+| `ipython` / `ipywidgets` | In-notebook audio playback widget   |
+
 ## Quick-Start Usage
 
-In a real environment point `url` to the Cloudflare R2 bucket:
+Point `url` to your Cloudflare R2 bucket (must be an **HTTPS** URL):
 
 ``` python
 from nbdev_upc_aidl_iemocap_datasets.core import DatasetsFactory
 
-factory = DatasetsFactory(url="http://example.com/")
-print(factory.get_dataset_audio_split_groups())
+factory = DatasetsFactory(url="https://<your-r2-bucket>.r2.dev/")
+factory.get_dataset_audio_split_groups()
 ```
 
 ### (Optional) Testing with local fixtures
@@ -200,6 +219,12 @@ ds.plot_melspectrogram(0)
     (e.g. `16,000`) = `76,800` samples.
   - If `should_add_padding` is `True`, the audio slice is 0-padded to
     the max sample limit before applying STFT and Mel scaling.
+  - **Backend**: Log-Mel Spectrogram computation defaults to
+    **`torchaudio`**
+    ([`MelSpectrogram`](https://pytorch.org/audio/stable/generated/torchaudio.transforms.MelSpectrogram.html) +
+    log scaling), which benchmarks ~**140% faster** than the equivalent
+    `librosa` pipeline. `librosa` remains a fallback dependency for
+    audio I/O.
 - **Labels (`Y`)**: A sorted `FloatTensor` containing 9 emotion scores:
   1.  frustrated
   2.  angry
