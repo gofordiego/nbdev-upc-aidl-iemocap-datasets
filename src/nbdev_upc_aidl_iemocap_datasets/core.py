@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import soundfile as sf
 import torch
 import torchaudio
@@ -225,8 +227,6 @@ class DatasetsFactory:
     IEMOCAP_DB_FILE_NAME = "iemocap_dataset_table.db"
     IEMOCAP_SPEAKERS_PARTITIONS = {
         "train": [
-            "Ses02__F",
-            "Ses02__M",
             "Ses03__F",
             "Ses03__M",
             "Ses04__F",
@@ -344,19 +344,29 @@ class DatasetsFactory:
         elif partition_type:
             speaker_ids_filter = self.IEMOCAP_SPEAKERS_PARTITIONS[partition_type]
 
-        filters = [
-            [('should_exclude', '==', False)],  # Condition 1
-        ]
-        if speaker_ids_filter:
-            # AND Condition 2
-            filters[0].append(('speaker_id', 'in', speaker_ids_filter))
-
         # Find the group
         group = self.mapped_manifest[id]
 
         parquet_url = group["last_export_filename"]
         parquet_filename = self._extract_dataset_audio_splits_file_name(parquet_url)
         parquet_path = self.cache_dir / parquet_filename
+
+        schema = pq.read_schema(parquet_path)
+        field_idx = schema.names.index('should_exclude')
+        should_exclude_type = schema.types[field_idx]
+
+        # If it is not boolean (e.g. it is integer/numeric),
+        # we compare against 0. Otherwise, we compare against False.
+        exclude_val = False
+        if not pa.types.is_boolean(should_exclude_type):
+            exclude_val = 0
+
+        filters = [
+            [('should_exclude', '==', exclude_val)],  # Condition 1
+        ]
+        if speaker_ids_filter:
+            # AND Condition 2
+            filters[0].append(('speaker_id', 'in', speaker_ids_filter))
 
         df = pd.read_parquet(parquet_path, filters=filters)
         df = df[df["should_exclude"] == False].copy()
