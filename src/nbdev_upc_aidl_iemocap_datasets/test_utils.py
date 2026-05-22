@@ -58,7 +58,7 @@ def create_test_fixtures() -> tuple[tempfile.TemporaryDirectory, Path]:
         }
     ]
     from nbdev_upc_aidl_iemocap_datasets.core import DatasetsFactory
-    with open(tests_path / DatasetsFactory.JSON_FILE_NAME, 'w') as f:
+    with open(tests_path / DatasetsFactory.CHUNKS_MANIFEST_JSON_FILE_NAME, 'w') as f:
         json.dump(manifest_data, f)
 
     # ── 2. Parquet audio chunk file ────────────────────────────────────────────────

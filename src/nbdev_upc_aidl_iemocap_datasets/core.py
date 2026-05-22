@@ -11,7 +11,9 @@ import json
 import os
 import requests
 import sqlite3
+import shutil
 from pathlib import Path
+import tempfile
 from typing import Literal
 
 import librosa
@@ -223,7 +225,7 @@ class AudioChunksDataset(Dataset):
 # %% ../../nbs/00_core.ipynb #a539c1b3
 class DatasetsFactory:
 
-    JSON_FILE_NAME = "dataset_audio_chunk_groups.json"
+    CHUNKS_MANIFEST_JSON_FILE_NAME = "dataset_audio_chunk_groups.json"
     IEMOCAP_DB_FILE_NAME = "iemocap_dataset_table.db"
     IEMOCAP_DB_VERSION_FILE_NAME = "iemocap_dataset_version.json"
     IEMOCAP_SPEAKERS_PARTITIONS = {
@@ -260,39 +262,112 @@ class DatasetsFactory:
         )
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        self.json_path = self.cache_dir / self.JSON_FILE_NAME
+        self.chunks_manifest_json_path = self.cache_dir / self.CHUNKS_MANIFEST_JSON_FILE_NAME
+        self.db_version_json_path = self.cache_dir / self.IEMOCAP_DB_VERSION_FILE_NAME
         self.db_path = self.cache_dir / self.IEMOCAP_DB_FILE_NAME
 
-        # Mapped JSON_FILE_NAME manifest *adding* local parquet file path.
+        # Mapped CHUNKS_MANIFEST_JSON_FILE_NAME manifest *adding* local parquet file path.
         # {dataset_audio_chunk_groups.id: dataset_audio_chunk_group | _parquet_path, ...}
         self.dataset_audio_chunk_groups = {}
 
         # Initial download of manifest and DB
         self._sync(refresh_json_file, refresh_sqlite_file)
 
-    def reset_cache(self):
-        """TODO:
-        delete self.json_path and self.json_path files
+    def clear_cached_files(self):
+        """Delete specific cached files: manifest, version JSON, SQLite DB, and parquet files."""
+        if self.chunks_manifest_json_path.exists():
+            try:
+                with open(self.chunks_manifest_json_path, "r") as f:
+                    manifest_data = json.load(f)
+                for group in manifest_data:
+                    parquet_url = group.get("last_export_filename")
+                    if parquet_url:
+                        parquet_filename = self._extract_dataset_audio_chunks_file_name(parquet_url)
+                        parquet_path = self.cache_dir / parquet_filename
+                        if parquet_path.exists():
+                            parquet_path.unlink()
+            except Exception as e:
+                print(f"Error reading manifest during cache clearing: {e}")
 
-        """
+        for path in [self.chunks_manifest_json_path, self.db_version_json_path, self.db_path]:
+            if path.exists():
+                path.unlink()
+
+    def _should_download_db(self, refresh_sqlite_file: bool) -> tuple[bool, bool]:
+        should_download_db = False
+        remote_version_downloaded = False
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_version_path = Path(temp_dir) / self.IEMOCAP_DB_VERSION_FILE_NAME
+            try:
+                self._download_file(
+                    f"{self.url}/{self.IEMOCAP_DB_VERSION_FILE_NAME}",
+                    temp_version_path,
+                    "Checking DB Version"
+                )
+                if temp_version_path.exists():
+                    remote_version_downloaded = True
+            except Exception as e:
+                print(f"Failed to check remote version: {e}.")
+
+            if remote_version_downloaded:
+                if not self.db_version_json_path.exists():
+                    print(f"Local version file not found. Downloading version file and database...")
+                    shutil.copy2(temp_version_path, self.db_version_json_path)
+                    should_download_db = True
+                else:
+                    try:
+                        with open(self.db_version_json_path, "r") as f:
+                            local_data = json.load(f)
+                            local_version = local_data.get("version")
+                        with open(temp_version_path, "r") as f:
+                            remote_data = json.load(f)
+                            remote_version = remote_data.get("version")
+
+                        if local_version != remote_version:
+                            print(f"Version mismatch! Local version: {local_version}, Remote version: {remote_version}. Will download database.")
+                            should_download_db = True
+                            shutil.copy2(temp_version_path, self.db_version_json_path)
+                        else:
+                            print(f"Local version matches remote version ({local_version}). Database download skipped.")
+                    except Exception as e:
+                        print(f"Error comparing versions: {e}. Re-downloading database.")
+                        should_download_db = True
+            else:
+                if not self.db_path.exists():
+                    should_download_db = True
+
+        if refresh_sqlite_file or not self.db_path.exists():
+            should_download_db = True
+
+        return should_download_db, remote_version_downloaded
 
     def _sync(self, refresh_json_file: bool = True, refresh_sqlite_file: bool = False):
-        if refresh_json_file or not self.json_path.exists():
+        if refresh_json_file or not self.chunks_manifest_json_path.exists():
             print(f"Downloading dataset manifest...")
             self._download_file(
-                f"{self.url}/{self.JSON_FILE_NAME}", self.json_path, "Manifest"
+                f"{self.url}/{self.CHUNKS_MANIFEST_JSON_FILE_NAME}", self.chunks_manifest_json_path, "Manifest"
             )
 
-        # TODO: Verify sql file version.
+        should_download_db, remote_version_downloaded = self._should_download_db(refresh_sqlite_file)
 
-        # The SQLite database shouldn't change from the initial version, so no need for a regular refresh.
-        if refresh_sqlite_file or not self.db_path.exists():
+        if should_download_db:
             print("Downloading SQLite database...")
             self._download_file(
                 f"{self.url}/{self.IEMOCAP_DB_FILE_NAME}", self.db_path, "SQLite DB"
             )
+            # Ensure local version file is updated if not already done
+            if not remote_version_downloaded:
+                try:
+                    self._download_file(
+                        f"{self.url}/{self.IEMOCAP_DB_VERSION_FILE_NAME}",
+                        self.db_version_json_path,
+                        "DB Version File"
+                    )
+                except Exception as e:
+                    print(f"Failed to download remote version file: {e}.")
 
-        with open(self.json_path, "r") as f:
+        with open(self.chunks_manifest_json_path, "r") as f:
             json_manifest = json.load(f)
             self.mapped_manifest = {group["id"]: group for group in json_manifest}
 
@@ -312,8 +387,8 @@ class DatasetsFactory:
         return last_export_filename_url.split("/")[-1]
 
     def _refresh_json_manifest_and_dataset_audio_chunks(self):
-        if self.json_path.exists():
-            self.json_path.unlink()
+        if self.chunks_manifest_json_path.exists():
+            self.chunks_manifest_json_path.unlink()
         self._sync(refresh_json_file=True)
 
     def _download_file(self, url: str, filepath: Path, desc=None):
@@ -359,7 +434,7 @@ class DatasetsFactory:
         parquet_url = group["last_export_filename"]
         parquet_filename = self._extract_dataset_audio_chunks_file_name(parquet_url)
         parquet_path = self.cache_dir / parquet_filename
-
+        
         schema = pq.read_schema(parquet_path)
         field_idx = schema.names.index('should_exclude')
         should_exclude_type = schema.types[field_idx]
@@ -391,3 +466,4 @@ class DatasetsFactory:
             win_length=win_length,
             n_mels=n_mels,
         )
+
