@@ -108,7 +108,7 @@ tmpdir, tests_path = create_test_fixtures()
 print('Fixtures ready at:', tests_path)
 ```
 
-    Fixtures ready at: /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn/T/tmpti8_ubhf
+    Fixtures ready at: /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn/T/tmpqnaglh5w
 
 ### Initialize the factory (no network)
 
@@ -139,14 +139,17 @@ factory.get_dataset_audio_split_groups()
 
 |  | id | split_threshold_seconds | previous_overlap_seconds | sample_rate | last_export_filename | last_export_at | \_parquet_path |
 |----|----|----|----|----|----|----|----|
-| 0 | 1 | 4.8 | 0.2 | 16000 | https://iemocap-files.plumberslog.com/dataset\_... | 2026-05-18 14:15:52.000000 | /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn... |
+| 0 | 1 | 4.8 | 0.2 | 16000 | http://example.com/dataset_audio_splits/group\_... | 2026-05-16 22:01:23.000000 | /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn... |
 
 </div>
 
 ### Build an `AudioSplitsDataset`
 
+Optional `partition_type`: “train”, “validation”, and “test”.
+
 ``` python
 ds = factory.build_dataset(
+    partition_type="test",  # Optional
     id=1,
     n_fft=1024,
     hop_length=160,
@@ -280,6 +283,9 @@ CREATE TABLE iemocap_dataset (
         pitch_std FLOAT,
         rms FLOAT,
         relative_db FLOAT,
+        speaker_id VARCHAR
+        track_group_id VARCHAR
+        track_group_speaker_turn INTEGER
         PRIMARY KEY (row_index)
 );
 CREATE UNIQUE INDEX ix_iemocap_dataset_file ON iemocap_dataset (file);
@@ -318,6 +324,10 @@ reviewed_fear FLOAT,
 reviewed_neutral FLOAT,
 reviewed_surprise FLOAT,
 reviewed_happy FLOAT,
+reviewed_major_emotion VARCHAR NOT NULL,
+speaker_id VARCHAR,
+track_group_id VARCHAR,
+track_group_speaker_turn INTEGER
 ```
 
 ## 🛠️ Development Guidelines

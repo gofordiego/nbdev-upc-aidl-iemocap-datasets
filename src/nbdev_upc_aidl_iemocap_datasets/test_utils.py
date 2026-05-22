@@ -73,7 +73,6 @@ def create_test_fixtures() -> tuple[tempfile.TemporaryDirectory, Path]:
         assigned_reviewer_id=None,
         last_reviewer_id=None,
         reviewed_at=None,
-        should_exclude=False,
         partition_type=0,
         reviewed_frustrated=0.635,
         reviewed_angry=0.320,
@@ -84,20 +83,28 @@ def create_test_fixtures() -> tuple[tempfile.TemporaryDirectory, Path]:
         reviewed_neutral=0.006,
         reviewed_surprise=0.006,
         reviewed_happy=0.006,
+        reviewed_major_emotion="frustrated",
+        speaker_id="Ses01__F",
+        track_group_id="Ses01F_impro01",
+        track_group_speaker_turn=11
     )
     parquet_data = [
         {**_common, 'id': 13, 'dataset_audio_split_group_id': '1',
          'split_part_idx': 0, 'start_sample_offset': 0,
          'end_sample_offset': 76800, 'sample_duration': 4.8,
-         'should_add_padding': False},
+         'should_exclude': False, 'should_add_padding': False},
         {**_common, 'id': 14, 'dataset_audio_split_group_id': '1',
          'split_part_idx': 1, 'start_sample_offset': 73600,
          'end_sample_offset': 150400, 'sample_duration': 4.8,
-         'should_add_padding': False},
+         'should_exclude': False, 'should_add_padding': False},
         {**_common, 'id': 15, 'dataset_audio_split_group_id': '1',
          'split_part_idx': 2, 'start_sample_offset': 147200,
          'end_sample_offset': 156959, 'sample_duration': 0.609,
-         'should_add_padding': True},
+         'should_exclude': False, 'should_add_padding': True},
+        {**_common, 'id': 1, 'dataset_audio_split_group_id': '1',
+         'split_part_idx': 0, 'start_sample_offset': 0,
+         'end_sample_offset': 1, 'sample_duration': 0.6,
+         'should_exclude': True, 'should_add_padding': True},
     ]
     pd.DataFrame(parquet_data).to_parquet(
         tests_path / 'group_id_1__last_export_1778968883.parquet'
@@ -123,18 +130,21 @@ def create_test_fixtures() -> tuple[tempfile.TemporaryDirectory, Path]:
             pitch_mean     FLOAT,
             pitch_std      FLOAT,
             rms            FLOAT,
-            relative_db    FLOAT
+            relative_db    FLOAT,
+            speaker_id VARCHAR,
+            track_group_id VARCHAR,
+            track_group_speaker_turn INTEGER
         )
     """)
     conn.execute("""
         INSERT INTO iemocap_dataset VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         11, None, 'Ses01F_impro01_F011.wav', audio_bytes,
         0.635, 0.320, 0.006, 0.006, 0.006, 0.006, 0.006, 0.006, 0.006,
         3.666, 2.0, 3.666,
         'Female', 'Yes but my wallet was stolen...', 'frustrated',
-        12.02, 266.14, 100.39, 0.064, -17.26,
+        12.02, 266.14, 100.39, 0.064, -17.26, 'Ses01_F', 'Ses01F_impro01', 11
     ))
     conn.commit()
     conn.close()

@@ -223,6 +223,26 @@ class DatasetsFactory:
 
     JSON_FILE_NAME = "dataset_audio_split_groups.json"
     IEMOCAP_DB_FILE_NAME = "iemocap_dataset_table.db"
+    IEMOCAP_SPEAKERS_PARTITIONS = {
+        "train": [
+            "Ses02__F",
+            "Ses02__M",
+            "Ses03__F",
+            "Ses03__M",
+            "Ses04__F",
+            "Ses04__M",
+            "Ses05__F",
+            "Ses05__M"
+        ],
+        "validation": [
+            "Ses02__F",
+            "Ses02__M"
+        ],
+        "test": [
+            "Ses01__F",
+            "Ses01__M"
+        ],
+    }
 
     def __init__(
         self,
@@ -312,10 +332,24 @@ class DatasetsFactory:
         hop_length: int,
         win_length: int,
         n_mels: int,
+        partition_type: Literal["train", "validation", "test"] | None = None,
+        speaker_ids_filter: list[str] | None = None,
         should_refresh_local_cache: bool = True,
     ):
         if should_refresh_local_cache:
             self._refresh_json_manifest_and_dataset_audio_splits()
+
+        if partition_type and speaker_ids_filter:
+            raise ValueError("`speaker_ids_filter` is not valid when `partition_type` argument is provided")
+        elif partition_type:
+            speaker_ids_filter = self.IEMOCAP_SPEAKERS_PARTITIONS[partition_type]
+
+        filters = [
+            [('should_exclude', '==', False)],  # Condition 1
+        ]
+        if speaker_ids_filter:
+            # AND Condition 2
+            filters[0].append(('speaker_id', 'in', speaker_ids_filter))
 
         # Find the group
         group = self.mapped_manifest[id]
@@ -324,7 +358,7 @@ class DatasetsFactory:
         parquet_filename = self._extract_dataset_audio_splits_file_name(parquet_url)
         parquet_path = self.cache_dir / parquet_filename
 
-        df = pd.read_parquet(parquet_path)
+        df = pd.read_parquet(parquet_path, filters=filters)
         df = df[df["should_exclude"] == False].copy()
         df = df.reset_index(drop=True)
 
