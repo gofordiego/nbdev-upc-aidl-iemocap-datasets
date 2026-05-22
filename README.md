@@ -17,7 +17,7 @@ Emotional Dyadic Motion Capture)** speech dataset.
 
 Rather than requiring manually downloaded audio archives and complex
 pre-processing scripts, this package provides a `DatasetsFactory` that
-downloads, caches, and indexes dataset splits directly from a Cloudflare
+downloads, caches, and indexes datasetchunks directly from a Cloudflare
 R2 bucket. It builds standard, high-performance PyTorch `Dataset`
 objects ready for Deep Learning (such as CNN/RNN classification models)
 with minimum configuration.
@@ -25,8 +25,8 @@ with minimum configuration.
 ### ✨ Key Features
 
 - **Automated R2 Remote Caching**: Seamlessly downloads and updates
-  metadata, audio databases, and Parquet splits from a remote **HTTPS**
-  Cloudflare R2 bucket to a local cache directory
+  metadata, audio databases, and Parquet audio chunks from a remote
+  **HTTPS** Cloudflare R2 bucket to a local cache directory
   (`~/.cache/upc-aidl-iemocap-datasets`). Downloads are handled by
   [`requests`](https://docs.python-requests.org/) for full SSL/TLS
   support.
@@ -37,12 +37,12 @@ with minimum configuration.
   zero-pads, and processes raw audio samples into log-scale Mel
   Spectrogram tensors using `librosa`.
 - **Notebook-Friendly APIs**:
-  - `get_dataset_audio_split_groups()` prints structured Pandas
+  - `get_dataset_audio_chunk_groups()` prints structured Pandas
     DataFrames.
   - `play_item_audio(idx)` lets you listen to sliced audio segments
     directly inside Jupyter/VS Code notebooks.
   - `plot_melspectrogram(idx)` renders a labelled log-Mel spectrogram
-    plot (split position, dominant emotion, and transcription) using
+    plot chunk position, dominant emotion, and transcription) using
     `matplotlib`.
 - **Built for Notebooks, Exported to Python**: Developed using `nbdev`
   and managed with `uv` for lightning-fast speeds and reliable developer
@@ -75,7 +75,7 @@ ones are:
 | `torch` / `torchaudio`   | PyTorch `Dataset` & audio utilities |
 | `librosa`                | Log-Mel Spectrogram computation     |
 | `requests`               | HTTPS downloads from Cloudflare R2  |
-| `pandas` / `pyarrow`     | Parquet split manifests             |
+| `pandas` / `pyarrow`     | Parquet audio chunk manifests       |
 | `soundfile`              | Decoding in-memory WAV audio bytes  |
 | `tqdm`                   | Download progress bars              |
 | `matplotlib`             | Spectrogram visualisation           |
@@ -89,13 +89,13 @@ Point `url` to your Cloudflare R2 bucket (must be an **HTTPS** URL):
 from nbdev_upc_aidl_iemocap_datasets.core import DatasetsFactory
 
 factory = DatasetsFactory(url="https://<your-r2-bucket>.r2.dev/")
-factory.get_dataset_audio_split_groups()
+factory.get_dataset_audio_chunk_groups()
 ```
 
 ### (Optional) Testing with local fixtures
 
 `create_test_fixtures()` returns a `(tmpdir, tests_path)` pair populated
-with a stub SQLite DB, a stub Parquet split file, and a stub JSON
+with a stub SQLite DB, a stub Parquet audio chunk file, and a stub JSON
 manifest — all backed by a synthetic 440 Hz sine-wave audio clip.
 
 The cells below use `create_test_fixtures()` so *this notebook* runs
@@ -108,7 +108,7 @@ tmpdir, tests_path = create_test_fixtures()
 print('Fixtures ready at:', tests_path)
 ```
 
-    Fixtures ready at: /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn/T/tmpqnaglh5w
+    Fixtures ready at: /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn/T/tmpk440mrpu
 
 ### Initialize the factory (no network)
 
@@ -121,7 +121,7 @@ factory = DatasetsFactory(
     refresh_json_file=False,
     refresh_sqlite_file=False,
 )
-factory.get_dataset_audio_split_groups()
+factory.get_dataset_audio_chunk_groups()
 ```
 
 <div>
@@ -137,13 +137,13 @@ factory.get_dataset_audio_split_groups()
     }
 </style>
 
-|  | id | split_threshold_seconds | previous_overlap_seconds | sample_rate | last_export_filename | last_export_at | \_parquet_path |
+|  | id | chunk_threshold_seconds | previous_overlap_seconds | sample_rate | last_export_filename | last_export_at | \_parquet_path |
 |----|----|----|----|----|----|----|----|
-| 0 | 1 | 4.8 | 0.2 | 16000 | http://example.com/dataset_audio_splits/group\_... | 2026-05-16 22:01:23.000000 | /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn... |
+| 0 | 1 | 4.8 | 0.2 | 16000 | http://example.com/dataset_audio_chunks/group\_... | 2026-05-16 22:01:23.000000 | /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn... |
 
 </div>
 
-### Build an `AudioSplitsDataset`
+### Build an `AudioChunksDataset`
 
 Optional `partition_type`: “train”, “validation”, and “test”.
 
@@ -157,10 +157,10 @@ ds = factory.build_dataset(
     n_mels=80,
     should_refresh_local_cache=False,
 )
-print(f'Dataset length: {len(ds)} splits')
+print(f'Dataset length: {len(ds)} chunks')
 ```
 
-    Dataset length: 3 splits
+    Dataset length: 3 chunks
 
 ### Inspect a single item
 
@@ -168,13 +168,13 @@ Each `ds[idx]` call returns a `(features, labels)` tuple: -
 **`features`** — float32 tensor of shape `(n_mels, time_frames)`
 containing the log-Mel spectrogram. - **`labels`** — float32 tensor of
 length 9 with per-emotion scores in the order
-`AudioSplitsDataset.LABELS_EMOTIONS`.
+`AudioChunksDataset.LABELS_EMOTIONS`.
 
 ``` python
 features, labels = ds[0]
 print('features shape:', features.shape)   # (80, T)
 print('labels shape: ', labels.shape)     # (9,)
-print('emotions:', AudioSplitsDataset.LABELS_EMOTIONS)
+print('emotions:', AudioChunksDataset.LABELS_EMOTIONS)
 print('scores:  ', labels.tolist())
 ```
 
@@ -185,10 +185,10 @@ print('scores:  ', labels.tolist())
 
 ### Notebook-Friendly APIs
 
-`AudioSplitsDataset` ships two interactive helpers designed for use
+`AudioChunksDataset` ships two interactive helpers designed for use
 inside Jupyter / VS Code notebooks.
 
-#### `play_item_audio(idx)` — listen to a split in-notebook
+#### `play_item_audio(idx)` — listen to a chunk in-notebook
 
 Renders an `IPython.display.Audio` widget so you can play back the raw
 sliced (and optionally zero-padded) audio clip directly in the notebook
@@ -199,10 +199,10 @@ without saving any files.
 ds.play_item_audio(0)
 ```
 
-#### `plot_melspectrogram(idx)` — visualise a split in-notebook
+#### `plot_melspectrogram(idx)` — visualise a chunk in-notebook
 
 Renders a labelled log-Mel spectrogram plot using `matplotlib`. Each
-plot shows the split position (e.g. *Split 1 of 3*), the dominant
+plot shows thechunk position (e.g. \* chunk 1 of 3\*), the dominant
 emotion, and the utterance transcription as a super-title.
 
 ``` python
@@ -218,8 +218,8 @@ ds.plot_melspectrogram(0)
   tensor.
   - Standard Sample Rate: `16,000 Hz`.
   - Max expected samples per slice is derived from the parameters:
-    `split_threshold_seconds` (e.g. `4.8s`) \* `sample_rate`
-    (e.g. `16,000`) = `76,800` samples.
+    chunk_threshold_seconds`(e.g.`4.8s`) *`sample_rate`(e.g.`16,000`) =`76,800\`
+    samples.
   - If `should_add_padding` is `True`, the audio slice is 0-padded to
     the max sample limit before applying STFT and Mel scaling.
   - **Backend**: Log-Mel Spectrogram computation defaults to
@@ -245,7 +245,7 @@ ds.plot_melspectrogram(0)
 > Log-Mel Spectrograms takes CPU power. While we do this on the fly
 > inside `__getitem__` to avoid storing gigabytes of floating-point
 > matrices in RAM, for fast training sessions you can enable an optional
-> in-memory dictionary cache in `AudioSplitsDataset` or store generated
+> in-memory dictionary cache in `AudioChunksDataset` or store generated
 > `.pt` tensors inside the cache directory. Prefetching features using
 > `DataLoader(num_workers=4, pin_memory=True)` is also highly
 > recommended.
@@ -292,21 +292,21 @@ CREATE UNIQUE INDEX ix_iemocap_dataset_file ON iemocap_dataset (file);
 CREATE INDEX ix_iemocap_dataset_row_index ON iemocap_dataset (row_index);
 ```
 
-### 2. Dataset Split Parquet Schema (`*.parquet`)
+### 2. Dataset Chunk Parquet Schema (`*.parquet`)
 
-Each split contains pre-segmented splits and alignment offsets.
+Eachchunk contains pre-segmentedchunks and alignment offsets.
 
 ``` sql
 id INTEGER NOT NULL,
-dataset_audio_split_group_id VARCHAR,
+dataset_audio_chunk_group_id VARCHAR,
 source_dataset_table_name VARCHAR,
 source_dataset_row_index INTEGER,
 source_dataset_audio_filename VARCHAR,
-split_compressed_audio_url VARCHAR,
+chunk_compressed_audio_url VARCHAR,
 source_duration_seconds FLOAT,
 source_total_samples INTEGER,
-total_split_parts INTEGER,
-split_part_idx INTEGER,
+total_chunk_parts INTEGER,
+chunk_part_idx INTEGER,
 start_sample_offset INTEGER,
 end_sample_offset INTEGER,
 sample_duration FLOAT,
@@ -367,25 +367,25 @@ directly inside Jupyter Notebooks.
 - **Export code from notebooks to library modules**:
 
   ``` bash
-  uv run nbdev_export
+  uv run nbdev-export
   ```
 
 - **Run notebook-based tests**:
 
   ``` bash
-  uv run nbdev_test
+  uv run nbdev-test
   ```
 
 - **Build the documentation website locally** (requires
   [Quarto](https://quarto.org/docs/get-started/)):
 
   ``` bash
-  uv run nbdev_preview
+  uv run nbdev-preview
   ```
 
 - **Prepare changes before committing** (runs export, clean, and tests
   all in one command):
 
   ``` bash
-  uv run nbdev_prepare
+  uv run nbdev-prepare
   ```
