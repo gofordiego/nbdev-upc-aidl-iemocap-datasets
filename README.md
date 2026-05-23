@@ -108,7 +108,7 @@ tmpdir, tests_path = create_test_fixtures()
 print('Fixtures ready at:', tests_path)
 ```
 
-    Fixtures ready at: /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn/T/tmpk440mrpu
+    Fixtures ready at: /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn/T/tmpgp8heo2v
 
 ### Initialize the factory (no network)
 
@@ -118,8 +118,8 @@ factory = DatasetsFactory(
     # Use our tests fixtures path
     override_cache_dir=tests_path,
     # Prevent trying to refresh test cached files from example.com domain.
-    refresh_json_file=False,
-    refresh_sqlite_file=False,
+    refresh_chunks_manifest_json_file=False,
+    refresh_iemocap_db_file=False,
 )
 factory.get_dataset_audio_chunk_groups()
 ```

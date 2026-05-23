@@ -10,11 +10,12 @@ import io
 import json
 import os
 import requests
-import sqlite3
 import shutil
-from pathlib import Path
+import sqlite3
 import tempfile
+from pathlib import Path
 from typing import Literal
+from unittest.mock import patch, MagicMock
 
 import librosa
 import matplotlib.pyplot as plt
@@ -251,8 +252,8 @@ class DatasetsFactory:
         self,
         url: str,
         override_cache_dir: Path | None = None,
-        refresh_json_file: bool = True,
-        refresh_sqlite_file: bool = False,
+        refresh_chunks_manifest_json_file: bool = True,
+        refresh_iemocap_db_file: bool = True,
     ):
         self.url = url.rstrip("/")
         self.cache_dir = (
@@ -271,7 +272,7 @@ class DatasetsFactory:
         self.dataset_audio_chunk_groups = {}
 
         # Initial download of manifest and DB
-        self._sync(refresh_json_file, refresh_sqlite_file)
+        self._sync(refresh_chunks_manifest_json_file, refresh_iemocap_db_file)
 
     def clear_cached_files(self):
         """Delete specific cached files: manifest, version JSON, SQLite DB, and parquet files."""
@@ -293,7 +294,7 @@ class DatasetsFactory:
             if path.exists():
                 path.unlink()
 
-    def _should_download_db(self, refresh_sqlite_file: bool) -> tuple[bool, bool]:
+    def _should_download_db(self) -> bool:
         should_download_db = False
         remote_version_downloaded = False
 
@@ -333,39 +334,24 @@ class DatasetsFactory:
                     except Exception as e:
                         print(f"Error comparing versions: {e}. Re-downloading database.")
                         should_download_db = True
-            else:
-                if not self.db_path.exists():
-                    should_download_db = True
 
-        if refresh_sqlite_file or not self.db_path.exists():
+        if not self.db_path.exists():
             should_download_db = True
 
-        return should_download_db, remote_version_downloaded
+        return should_download_db
 
-    def _sync(self, refresh_json_file: bool = True, refresh_sqlite_file: bool = False):
-        if refresh_json_file or not self.chunks_manifest_json_path.exists():
-            print(f"Downloading dataset manifest...")
+    def _sync(self, refresh_chunks_manifest_json_file: bool = True, refresh_iemocap_db_file: bool = True):
+        if refresh_chunks_manifest_json_file or not self.chunks_manifest_json_path.exists():
+            print(f"Downloading audio chunk dataset groups manifest...")
             self._download_file(
-                f"{self.url}/{self.CHUNKS_MANIFEST_JSON_FILE_NAME}", self.chunks_manifest_json_path, "Manifest"
+                f"{self.url}/{self.CHUNKS_MANIFEST_JSON_FILE_NAME}", self.chunks_manifest_json_path, "Audio Chunk Dataset Groups Manifest"
             )
 
-        should_download_db, remote_version_downloaded = self._should_download_db(refresh_sqlite_file)
-
-        if should_download_db:
-            print("Downloading SQLite database...")
+        if refresh_iemocap_db_file and self._should_download_db():
+            print("Downloading IEMOCAP SQLite database...")
             self._download_file(
-                f"{self.url}/{self.IEMOCAP_DB_FILE_NAME}", self.db_path, "SQLite DB"
+                f"{self.url}/{self.IEMOCAP_DB_FILE_NAME}", self.db_path, "IEMOCAP SQLite DB"
             )
-            # Ensure local version file is updated if not already done
-            if not remote_version_downloaded:
-                try:
-                    self._download_file(
-                        f"{self.url}/{self.IEMOCAP_DB_VERSION_FILE_NAME}",
-                        self.db_version_json_path,
-                        "DB Version File"
-                    )
-                except Exception as e:
-                    print(f"Failed to download remote version file: {e}.")
 
         with open(self.chunks_manifest_json_path, "r") as f:
             json_manifest = json.load(f)
@@ -389,7 +375,7 @@ class DatasetsFactory:
     def _refresh_json_manifest_and_dataset_audio_chunks(self):
         if self.chunks_manifest_json_path.exists():
             self.chunks_manifest_json_path.unlink()
-        self._sync(refresh_json_file=True)
+        self._sync(refresh_chunks_manifest_json_file=True)
 
     def _download_file(self, url: str, filepath: Path, desc=None):
         response = requests.get(url, stream=True)

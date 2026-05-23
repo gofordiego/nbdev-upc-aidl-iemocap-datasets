@@ -31,6 +31,9 @@ All architectural details, data flow diagrams, schemas, and requirements are ful
    - Do not use `pip` directly unless inside a `uv` wrapper or specified otherwise.
    - Use `uv sync` to keep the virtual environment up to date and `uv run` to execute commands.
 
+4. **Git Staging Rules**:
+   - Never add files to git staging (`git add`). Only the user reviewer should perform staging and commit actions.
+
 ---
 
 ## 🛠️ Completed Tasks & Implementations
