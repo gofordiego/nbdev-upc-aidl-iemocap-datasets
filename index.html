@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A convenience PyTorch Dataset factory for the IEMOCAP emotional speech dataset. This library provides seamless caching, on-the-fly log-Mel spectrogram feature extraction, SQLite-backed raw audio lookups, and notebook-friendly visualization tools.">
+
+<title>nbdev-upc-aidl-iemocap-datasets 🎧 – nbdev-upc-aidl-iemocap-datasets</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-62a0fb827630e33fd95d729094ca943e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="nbdev-upc-aidl-iemocap-datasets 🎧 – nbdev-upc-aidl-iemocap-datasets">
+<meta property="og:description" content="A convenience PyTorch Dataset factory for the IEMOCAP emotional speech dataset. This library provides seamless caching, on-the-fly log-Mel spectrogram feature extraction, SQLite-backed raw audio lookups, and notebook-friendly visualization tools.">
+<meta property="og:site_name" content="nbdev-upc-aidl-iemocap-datasets">
+<meta name="twitter:title" content="nbdev-upc-aidl-iemocap-datasets 🎧 – nbdev-upc-aidl-iemocap-datasets">
+<meta name="twitter:description" content="A convenience PyTorch Dataset factory for the IEMOCAP emotional speech dataset. This library provides seamless caching, on-the-fly log-Mel spectrogram feature extraction, SQLite-backed raw audio lookups, and notebook-friendly visualization tools.">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">nbdev-upc-aidl-iemocap-datasets</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./index.html">nbdev-upc-aidl-iemocap-datasets 🎧</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">nbdev-upc-aidl-iemocap-datasets 🎧</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./core.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Core</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./test_utils.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Test Utilities</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">📖 Overview</a>
+  <ul class="collapse">
+  <li><a href="#key-features" id="toc-key-features" class="nav-link" data-scroll-target="#key-features">✨ Key Features</a></li>
+  </ul></li>
+  <li><a href="#installation" id="toc-installation" class="nav-link" data-scroll-target="#installation">🚀 Installation</a>
+  <ul class="collapse">
+  <li><a href="#key-runtime-dependencies" id="toc-key-runtime-dependencies" class="nav-link" data-scroll-target="#key-runtime-dependencies">📋 Key Runtime Dependencies</a></li>
+  </ul></li>
+  <li><a href="#quick-start-usage" id="toc-quick-start-usage" class="nav-link" data-scroll-target="#quick-start-usage">Quick-Start Usage</a>
+  <ul class="collapse">
+  <li><a href="#optional-testing-with-local-fixtures" id="toc-optional-testing-with-local-fixtures" class="nav-link" data-scroll-target="#optional-testing-with-local-fixtures">(Optional) Testing with local fixtures</a></li>
+  <li><a href="#initialize-the-factory-no-network" id="toc-initialize-the-factory-no-network" class="nav-link" data-scroll-target="#initialize-the-factory-no-network">Initialize the factory (no network)</a></li>
+  <li><a href="#build-an-audiochunksdataset" id="toc-build-an-audiochunksdataset" class="nav-link" data-scroll-target="#build-an-audiochunksdataset">Build an <code>AudioChunksDataset</code></a></li>
+  <li><a href="#inspect-a-single-item" id="toc-inspect-a-single-item" class="nav-link" data-scroll-target="#inspect-a-single-item">Inspect a single item</a></li>
+  <li><a href="#notebook-friendly-apis" id="toc-notebook-friendly-apis" class="nav-link" data-scroll-target="#notebook-friendly-apis">Notebook-Friendly APIs</a></li>
+  </ul></li>
+  <li><a href="#feature-engineering-pytorch-dataset-details" id="toc-feature-engineering-pytorch-dataset-details" class="nav-link" data-scroll-target="#feature-engineering-pytorch-dataset-details">🧠 Feature Engineering &amp; PyTorch Dataset Details</a>
+  <ul class="collapse">
+  <li><a href="#feature-extraction" id="toc-feature-extraction" class="nav-link" data-scroll-target="#feature-extraction">Feature Extraction</a></li>
+  <li><a href="#caching-considerations" id="toc-caching-considerations" class="nav-link" data-scroll-target="#caching-considerations">Caching Considerations</a></li>
+  </ul></li>
+  <li><a href="#database-file-schemas" id="toc-database-file-schemas" class="nav-link" data-scroll-target="#database-file-schemas">🗄️ Database &amp; File Schemas</a>
+  <ul class="collapse">
+  <li><a href="#sqlite-database-schema-iemocap_dataset_table.db" id="toc-sqlite-database-schema-iemocap_dataset_table.db" class="nav-link" data-scroll-target="#sqlite-database-schema-iemocap_dataset_table.db">1. SQLite Database Schema (<code>iemocap_dataset_table.db</code>)</a></li>
+  <li><a href="#dataset-chunk-parquet-schema-.parquet" id="toc-dataset-chunk-parquet-schema-.parquet" class="nav-link" data-scroll-target="#dataset-chunk-parquet-schema-.parquet">2. Dataset Chunk Parquet Schema (<code>*.parquet</code>)</a></li>
+  </ul></li>
+  <li><a href="#development-guidelines" id="toc-development-guidelines" class="nav-link" data-scroll-target="#development-guidelines">🛠️ Development Guidelines</a>
+  <ul class="collapse">
+  <li><a href="#package-manager-uv" id="toc-package-manager-uv" class="nav-link" data-scroll-target="#package-manager-uv">📦 1. Package Manager: <code>uv</code></a></li>
+  <li><a href="#development-flow-nbdev" id="toc-development-flow-nbdev" class="nav-link" data-scroll-target="#development-flow-nbdev">📓 2. Development Flow: <code>nbdev</code></a></li>
+  </ul></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.html.md"><i class="bi bi-file-code"></i>CommonMark</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">nbdev-upc-aidl-iemocap-datasets 🎧</h1>
+</div>
+
+<div>
+  <div class="description">
+    A convenience PyTorch Dataset factory for the <a href="http://sail.usc.edu/iemocap/">IEMOCAP emotional speech dataset</a>. This library provides seamless caching, on-the-fly log-Mel spectrogram feature extraction, SQLite-backed raw audio lookups, and notebook-friendly visualization tools.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<blockquote class="blockquote">
+<p>[!NOTE] <strong>For contributors:</strong> This file (<code>nbs/index.ipynb</code>) is the <strong>source of truth</strong> for the project’s <code>README.md</code>. Do <strong>not</strong> edit <code>README.md</code> directly — it is auto-generated by running <code>nbdev_prepare</code> or <code>nbdev_export</code>. Any changes to the README content should be made here in <code>nbs/index.ipynb</code>.</p>
+</blockquote>
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">📖 Overview</h2>
+<p>The <strong><code>nbdev-upc-aidl-iemocap-datasets</code></strong> package is a convenience module designed to simplify working with the <strong>IEMOCAP (Interactive Emotional Dyadic Motion Capture)</strong> speech dataset.</p>
+<p>Rather than requiring manually downloaded audio archives and complex pre-processing scripts, this package provides a <code>DatasetsFactory</code> that downloads, caches, and indexes datasetchunks directly from a Cloudflare R2 bucket. It builds standard, high-performance PyTorch <code>Dataset</code> objects ready for Deep Learning (such as CNN/RNN classification models) with minimum configuration.</p>
+<section id="key-features" class="level3">
+<h3 class="anchored" data-anchor-id="key-features">✨ Key Features</h3>
+<ul>
+<li><strong>Automated R2 Remote Caching</strong>: Seamlessly downloads and updates metadata, audio databases, and Parquet audio chunks from a remote <strong>HTTPS</strong> Cloudflare R2 bucket to a local cache directory (<code>~/.cache/upc-aidl-iemocap-datasets</code>). Downloads are handled by <a href="https://docs.python-requests.org/"><code>requests</code></a> for full SSL/TLS support.</li>
+<li><strong>SQLite Storage for Audio bytes</strong>: Queries audio data on-demand from a single SQLite database, avoiding the overhead of managing thousands of individual audio files on your disk.</li>
+<li><strong>On-the-Fly Feature Extraction</strong>: Dynamically reads, slices, zero-pads, and processes raw audio samples into log-scale Mel Spectrogram tensors using <code>librosa</code>.</li>
+<li><strong>Notebook-Friendly APIs</strong>:
+<ul>
+<li><code>get_dataset_audio_chunk_groups()</code> prints structured Pandas DataFrames.</li>
+<li><code>play_item_audio(idx)</code> lets you listen to sliced audio segments directly inside Jupyter/VS Code notebooks.</li>
+<li><code>plot_melspectrogram(idx)</code> renders a labelled log-Mel spectrogram plot chunk position, dominant emotion, and transcription) using <code>matplotlib</code>.</li>
+</ul></li>
+<li><strong>Built for Notebooks, Exported to Python</strong>: Developed using <code>nbdev</code> and managed with <code>uv</code> for lightning-fast speeds and reliable developer experience.</li>
+</ul>
+</section>
+</section>
+<section id="installation" class="level2">
+<h2 class="anchored" data-anchor-id="installation">🚀 Installation</h2>
+<p>Initially, this package is intended to be used directly via its public GitHub URL and is not published on PyPI.</p>
+<p>You can install it into your environment using <strong><code>uv</code></strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode sh code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> add <span class="st">"git+https://github.com/gofordiego/nbdev-upc-aidl-iemocap-datasets.git"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Or using standard <code>pip</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode sh code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install git+https://github.com/gofordiego/nbdev-upc-aidl-iemocap-datasets.git</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="key-runtime-dependencies" class="level3">
+<h3 class="anchored" data-anchor-id="key-runtime-dependencies">📋 Key Runtime Dependencies</h3>
+<p>The package is installed with all dependencies automatically. The main ones are:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Package</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>torch</code> / <code>torchaudio</code></td>
+<td>PyTorch <code>Dataset</code> &amp; audio utilities</td>
+</tr>
+<tr class="even">
+<td><code>librosa</code></td>
+<td>Log-Mel Spectrogram computation</td>
+</tr>
+<tr class="odd">
+<td><code>requests</code></td>
+<td>HTTPS downloads from Cloudflare R2</td>
+</tr>
+<tr class="even">
+<td><code>pandas</code> / <code>pyarrow</code></td>
+<td>Parquet audio chunk manifests</td>
+</tr>
+<tr class="odd">
+<td><code>soundfile</code></td>
+<td>Decoding in-memory WAV audio bytes</td>
+</tr>
+<tr class="even">
+<td><code>tqdm</code></td>
+<td>Download progress bars</td>
+</tr>
+<tr class="odd">
+<td><code>matplotlib</code></td>
+<td>Spectrogram visualisation</td>
+</tr>
+<tr class="even">
+<td><code>ipython</code> / <code>ipywidgets</code></td>
+<td>In-notebook audio playback widget</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="quick-start-usage" class="level2">
+<h2 class="anchored" data-anchor-id="quick-start-usage">Quick-Start Usage</h2>
+<p>Point <code>url</code> to your Cloudflare R2 bucket (must be an <strong>HTTPS</strong> URL):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> nbdev_upc_aidl_iemocap_datasets.core <span class="im">import</span> DatasetsFactory</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>factory <span class="op">=</span> DatasetsFactory(url<span class="op">=</span><span class="st">"https://&lt;your-r2-bucket&gt;.r2.dev/"</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>factory.get_dataset_audio_chunk_groups()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="optional-testing-with-local-fixtures" class="level3">
+<h3 class="anchored" data-anchor-id="optional-testing-with-local-fixtures">(Optional) Testing with local fixtures</h3>
+<p><code>create_test_fixtures()</code> returns a <code>(tmpdir, tests_path)</code> pair populated with a stub SQLite DB, a stub Parquet audio chunk file, and a stub JSON manifest — all backed by a synthetic 440 Hz sine-wave audio clip.</p>
+<p>The cells below use <code>create_test_fixtures()</code> so <em>this notebook</em> runs <strong>without network access</strong> and is safe to run in CI.</p>
+<div id="idx_fixtures_code" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> nbdev_upc_aidl_iemocap_datasets.test_utils <span class="im">import</span> create_test_fixtures</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>tmpdir, tests_path <span class="op">=</span> create_test_fixtures()</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'Fixtures ready at:'</span>, tests_path)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Fixtures ready at: /var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn/T/tmpgp8heo2v</code></pre>
+</div>
+</div>
+</section>
+<section id="initialize-the-factory-no-network" class="level3">
+<h3 class="anchored" data-anchor-id="initialize-the-factory-no-network">Initialize the factory (no network)</h3>
+<div id="2a02246b" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>factory <span class="op">=</span> DatasetsFactory(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    url<span class="op">=</span><span class="st">"http://example.com/"</span>,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Use our tests fixtures path</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    override_cache_dir<span class="op">=</span>tests_path,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Prevent trying to refresh test cached files from example.com domain.</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    refresh_chunks_manifest_json_file<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    refresh_iemocap_db_file<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>factory.get_dataset_audio_chunk_groups()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">id</th>
+<th data-quarto-table-cell-role="th">chunk_threshold_seconds</th>
+<th data-quarto-table-cell-role="th">previous_overlap_seconds</th>
+<th data-quarto-table-cell-role="th">sample_rate</th>
+<th data-quarto-table-cell-role="th">last_export_filename</th>
+<th data-quarto-table-cell-role="th">last_export_at</th>
+<th data-quarto-table-cell-role="th">_parquet_path</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>1</td>
+<td>4.8</td>
+<td>0.2</td>
+<td>16000</td>
+<td>http://example.com/dataset_audio_chunks/group_...</td>
+<td>2026-05-16 22:01:23.000000</td>
+<td>/var/folders/bn/87jpkfs15bl3l7j40cpcr6140000gn...</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+<section id="build-an-audiochunksdataset" class="level3">
+<h3 class="anchored" data-anchor-id="build-an-audiochunksdataset">Build an <code>AudioChunksDataset</code></h3>
+<p>Optional <code>partition_type</code>: “train”, “validation”, and “test”.</p>
+<div id="idx_build_code" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>ds <span class="op">=</span> factory.build_dataset(</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    partition_type<span class="op">=</span><span class="st">"test"</span>,  <span class="co"># Optional</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">id</span><span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    n_fft<span class="op">=</span><span class="dv">1024</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    hop_length<span class="op">=</span><span class="dv">160</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    win_length<span class="op">=</span><span class="dv">400</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    n_mels<span class="op">=</span><span class="dv">80</span>,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    should_refresh_local_cache<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'Dataset length: </span><span class="sc">{</span><span class="bu">len</span>(ds)<span class="sc">}</span><span class="ss"> chunks'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Dataset length: 3 chunks</code></pre>
+</div>
+</div>
+</section>
+<section id="inspect-a-single-item" class="level3">
+<h3 class="anchored" data-anchor-id="inspect-a-single-item">Inspect a single item</h3>
+<p>Each <code>ds[idx]</code> call returns a <code>(features, labels)</code> tuple: - <strong><code>features</code></strong> — float32 tensor of shape <code>(n_mels, time_frames)</code> containing the log-Mel spectrogram. - <strong><code>labels</code></strong> — float32 tensor of length 9 with per-emotion scores in the order <code>AudioChunksDataset.LABELS_EMOTIONS</code>.</p>
+<div id="idx_item_code" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>features, labels <span class="op">=</span> ds[<span class="dv">0</span>]</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'features shape:'</span>, features.shape)   <span class="co"># (80, T)</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'labels shape: '</span>, labels.shape)     <span class="co"># (9,)</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'emotions:'</span>, AudioChunksDataset.LABELS_EMOTIONS)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'scores:  '</span>, labels.tolist())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>features shape: torch.Size([80, 481])
+labels shape:  torch.Size([9])
+emotions: ['frustrated', 'angry', 'sad', 'disgust', 'excited', 'fear', 'neutral', 'surprise', 'happy']
+scores:   [0.6349999904632568, 0.3199999928474426, 0.006000000052154064, 0.006000000052154064, 0.006000000052154064, 0.006000000052154064, 0.006000000052154064, 0.006000000052154064, 0.006000000052154064]</code></pre>
+</div>
+</div>
+</section>
+<section id="notebook-friendly-apis" class="level3">
+<h3 class="anchored" data-anchor-id="notebook-friendly-apis">Notebook-Friendly APIs</h3>
+<p><code>AudioChunksDataset</code> ships two interactive helpers designed for use inside Jupyter / VS Code notebooks.</p>
+<section id="play_item_audioidx-listen-to-a-chunk-in-notebook" class="level4">
+<h4 class="anchored" data-anchor-id="play_item_audioidx-listen-to-a-chunk-in-notebook"><code>play_item_audio(idx)</code> — listen to a chunk in-notebook</h4>
+<p>Renders an <code>IPython.display.Audio</code> widget so you can play back the raw sliced (and optionally zero-padded) audio clip directly in the notebook without saving any files.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plays the audio widget inline (works in Jupyter / VS Code notebooks)</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>ds.play_item_audio(<span class="dv">0</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="plot_melspectrogramidx-visualise-a-chunk-in-notebook" class="level4">
+<h4 class="anchored" data-anchor-id="plot_melspectrogramidx-visualise-a-chunk-in-notebook"><code>plot_melspectrogram(idx)</code> — visualise a chunk in-notebook</h4>
+<p>Renders a labelled log-Mel spectrogram plot using <code>matplotlib</code>. Each plot shows thechunk position (e.g.&nbsp;* chunk 1 of 3*), the dominant emotion, and the utterance transcription as a super-title.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Renders a log-Mel spectrogram plot inline (works in Jupyter / VS Code notebooks)</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>ds.plot_melspectrogram(<span class="dv">0</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+</section>
+<section id="feature-engineering-pytorch-dataset-details" class="level2">
+<h2 class="anchored" data-anchor-id="feature-engineering-pytorch-dataset-details">🧠 Feature Engineering &amp; PyTorch Dataset Details</h2>
+<section id="feature-extraction" class="level3">
+<h3 class="anchored" data-anchor-id="feature-extraction">Feature Extraction</h3>
+<ul>
+<li><strong>Features (<code>X</code>)</strong>: Constructed as a Log-Mel Spectrogram PyTorch tensor.
+<ul>
+<li>Standard Sample Rate: <code>16,000 Hz</code>.</li>
+<li>Max expected samples per slice is derived from the parameters: chunk_threshold_seconds<code>(e.g.</code>4.8s<code>) *</code>sample_rate<code>(e.g.</code>16,000<code>) =</code>76,800` samples.</li>
+<li>If <code>should_add_padding</code> is <code>True</code>, the audio slice is 0-padded to the max sample limit before applying STFT and Mel scaling.</li>
+<li><strong>Backend</strong>: Log-Mel Spectrogram computation defaults to <strong><code>torchaudio</code></strong> (<a href="https://pytorch.org/audio/stable/generated/torchaudio.transforms.MelSpectrogram.html"><code>MelSpectrogram</code></a> + log scaling), which benchmarks ~<strong>140% faster</strong> than the equivalent <code>librosa</code> pipeline. <code>librosa</code> remains a fallback dependency for audio I/O.</li>
+</ul></li>
+<li><strong>Labels (<code>Y</code>)</strong>: A sorted <code>FloatTensor</code> containing 9 emotion scores:
+<ol type="1">
+<li>frustrated</li>
+<li>angry</li>
+<li>sad</li>
+<li>disgust</li>
+<li>excited</li>
+<li>fear</li>
+<li>neutral</li>
+<li>surprise</li>
+<li>happy</li>
+</ol></li>
+</ul>
+</section>
+<section id="caching-considerations" class="level3">
+<h3 class="anchored" data-anchor-id="caching-considerations">Caching Considerations</h3>
+<blockquote class="blockquote">
+<p>[!TIP] <strong>On-the-Fly Computation vs.&nbsp;In-Memory Caching:</strong> Computing Log-Mel Spectrograms takes CPU power. While we do this on the fly inside <code>__getitem__</code> to avoid storing gigabytes of floating-point matrices in RAM, for fast training sessions you can enable an optional in-memory dictionary cache in <code>AudioChunksDataset</code> or store generated <code>.pt</code> tensors inside the cache directory. Prefetching features using <code>DataLoader(num_workers=4, pin_memory=True)</code> is also highly recommended.</p>
+</blockquote>
+</section>
+</section>
+<section id="database-file-schemas" class="level2">
+<h2 class="anchored" data-anchor-id="database-file-schemas">🗄️ Database &amp; File Schemas</h2>
+<section id="sqlite-database-schema-iemocap_dataset_table.db" class="level3">
+<h3 class="anchored" data-anchor-id="sqlite-database-schema-iemocap_dataset_table.db">1. SQLite Database Schema (<code>iemocap_dataset_table.db</code>)</h3>
+<p>This table holds the raw compressed audios and emotion ratings, indexed for microsecond-level retrieval.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> iemocap_dataset (</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>        row_index <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>        compressed_audio_url <span class="dt">VARCHAR</span>,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">file</span> <span class="dt">VARCHAR</span>,</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        audio_bytes <span class="dt">BLOB</span>,</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        frustrated <span class="dt">FLOAT</span>,</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>        angry <span class="dt">FLOAT</span>,</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>        sad <span class="dt">FLOAT</span>,</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        disgust <span class="dt">FLOAT</span>,</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        excited <span class="dt">FLOAT</span>,</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>        fear <span class="dt">FLOAT</span>,</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>        neutral <span class="dt">FLOAT</span>,</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>        surprise <span class="dt">FLOAT</span>,</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>        happy <span class="dt">FLOAT</span>,</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>        <span class="ot">"EmoAct"</span> <span class="dt">FLOAT</span>,</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>        <span class="ot">"EmoVal"</span> <span class="dt">FLOAT</span>,</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>        <span class="ot">"EmoDom"</span> <span class="dt">FLOAT</span>,</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>        gender <span class="dt">VARCHAR</span>,</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>        transcription <span class="dt">VARCHAR</span>,</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>        major_emotion <span class="dt">VARCHAR</span>,</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>        speaking_rate <span class="dt">FLOAT</span>,</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>        pitch_mean <span class="dt">FLOAT</span>,</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>        pitch_std <span class="dt">FLOAT</span>,</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>        rms <span class="dt">FLOAT</span>,</span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>        relative_db <span class="dt">FLOAT</span>,</span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>        speaker_id <span class="dt">VARCHAR</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>        track_group_id <span class="dt">VARCHAR</span></span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>        track_group_speaker_turn <span class="dt">INTEGER</span></span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>        <span class="kw">PRIMARY</span> <span class="kw">KEY</span> (row_index)</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">UNIQUE</span> <span class="kw">INDEX</span> ix_iemocap_dataset_file <span class="kw">ON</span> iemocap_dataset (<span class="kw">file</span>);</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> ix_iemocap_dataset_row_index <span class="kw">ON</span> iemocap_dataset (row_index);</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="dataset-chunk-parquet-schema-.parquet" class="level3">
+<h3 class="anchored" data-anchor-id="dataset-chunk-parquet-schema-.parquet">2. Dataset Chunk Parquet Schema (<code>*.parquet</code>)</h3>
+<p>Eachchunk contains pre-segmentedchunks and alignment offsets.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">id</span> <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>dataset_audio_chunk_group_id <span class="dt">VARCHAR</span>,</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>source_dataset_table_name <span class="dt">VARCHAR</span>,</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>source_dataset_row_index <span class="dt">INTEGER</span>,</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>source_dataset_audio_filename <span class="dt">VARCHAR</span>,</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>chunk_compressed_audio_url <span class="dt">VARCHAR</span>,</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>source_duration_seconds <span class="dt">FLOAT</span>,</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>source_total_samples <span class="dt">INTEGER</span>,</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>total_chunk_parts <span class="dt">INTEGER</span>,</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>chunk_part_idx <span class="dt">INTEGER</span>,</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>start_sample_offset <span class="dt">INTEGER</span>,</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>end_sample_offset <span class="dt">INTEGER</span>,</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>sample_duration <span class="dt">FLOAT</span>,</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>should_add_padding <span class="dt">BOOLEAN</span>,</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>assigned_reviewer_id <span class="dt">INTEGER</span>,</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>last_reviewer_id <span class="dt">INTEGER</span>,</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>reviewed_at DATETIME,</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>should_exclude <span class="dt">BOOLEAN</span>,</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>reviewed_frustrated <span class="dt">FLOAT</span>,</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>reviewed_angry <span class="dt">FLOAT</span>,</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>reviewed_sad <span class="dt">FLOAT</span>,</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>reviewed_disgust <span class="dt">FLOAT</span>,</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>reviewed_excited <span class="dt">FLOAT</span>,</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>reviewed_fear <span class="dt">FLOAT</span>,</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>reviewed_neutral <span class="dt">FLOAT</span>,</span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>reviewed_surprise <span class="dt">FLOAT</span>,</span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>reviewed_happy <span class="dt">FLOAT</span>,</span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>reviewed_major_emotion <span class="dt">VARCHAR</span> <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>speaker_id <span class="dt">VARCHAR</span>,</span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>track_group_id <span class="dt">VARCHAR</span>,</span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>track_group_speaker_turn <span class="dt">INTEGER</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+<section id="development-guidelines" class="level2">
+<h2 class="anchored" data-anchor-id="development-guidelines">🛠️ Development Guidelines</h2>
+<p>This project uses modern tooling for high-speed local Python package management and notebook-integrated software development.</p>
+<section id="package-manager-uv" class="level3">
+<h3 class="anchored" data-anchor-id="package-manager-uv">📦 1. Package Manager: <code>uv</code></h3>
+<p>We use <a href="https://github.com/astral-sh/uv"><strong><code>uv</code></strong></a> to manage project dependencies and virtual environments. It is an extremely fast replacement for <code>pip</code>, <code>pip-tools</code>, and <code>poetry</code>.</p>
+<ul>
+<li><p>To install dependencies:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> sync</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p>To run commands inside the virtual environment:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="op">&lt;</span>command<span class="op">&gt;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+</ul>
+</section>
+<section id="development-flow-nbdev" class="level3">
+<h3 class="anchored" data-anchor-id="development-flow-nbdev">📓 2. Development Flow: <code>nbdev</code></h3>
+<p>This project is built using <a href="https://nbdev.fast.ai/"><strong><code>nbdev</code></strong></a>, which allows us to write, test, document, and distribute Python packages directly inside Jupyter Notebooks.</p>
+<blockquote class="blockquote">
+<p>[!IMPORTANT] <strong>Do not edit <code>.py</code> files inside <code>src/</code> directly!</strong> All code logic must be written inside <code>.ipynb</code> notebooks located in the workspace. Running <code>nbdev</code> commands will export the notebook code into the Python modules automatically.</p>
+</blockquote>
+<ul>
+<li><p><strong>Export code from notebooks to library modules</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run nbdev-export</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong>Run notebook-based tests</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run nbdev-test</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong>Build the documentation website locally</strong> (requires <a href="https://quarto.org/docs/get-started/">Quarto</a>):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run nbdev-preview</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong>Prepare changes before committing</strong> (runs export, clean, and tests all in one command):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run nbdev-prepare</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+</ul>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
