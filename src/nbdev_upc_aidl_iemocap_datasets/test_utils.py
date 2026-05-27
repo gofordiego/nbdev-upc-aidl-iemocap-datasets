@@ -55,7 +55,18 @@ def create_test_fixtures() -> tuple[tempfile.TemporaryDirectory, Path]:
                 "group_id_1__last_export_1778968883.parquet"
             ),
             "last_export_at": "2026-05-16 22:01:23.000000",
-        }
+        },
+        {
+            "id": 2,
+            "chunk_threshold_seconds": 4.8,
+            "previous_overlap_seconds": 0.2,
+            "sample_rate": 16000,
+            "last_export_filename": (
+                "http://example.com/dataset_audio_chunks/"
+                "group_id_2__last_export_1778999999.parquet"
+            ),
+            "last_export_at": "2026-05-17 06:39:59.000000",
+        },
     ]
     from nbdev_upc_aidl_iemocap_datasets.core import DatasetsFactory
     with open(tests_path / DatasetsFactory.CHUNKS_MANIFEST_JSON_FILE_NAME, 'w') as f:
@@ -66,7 +77,7 @@ def create_test_fixtures() -> tuple[tempfile.TemporaryDirectory, Path]:
         source_dataset_table_name="iemocap_dataset",
         source_dataset_row_index=11,
         source_dataset_audio_filename="Ses01F_impro01_F011.wav",
-       chunk_compressed_audio_url=None,
+        chunk_compressed_audio_url=None,
         source_duration_seconds=9.81,
         source_total_samples=156960,
         total_chunk_parts=3,
@@ -88,26 +99,30 @@ def create_test_fixtures() -> tuple[tempfile.TemporaryDirectory, Path]:
         track_group_id="Ses01F_impro01",
         track_group_speaker_turn=11
     )
-    parquet_data = [
-        {**_common, 'id': 13, 'dataset_audio_chunk_group_id': '1',
-         'chunk_part_idx': 0, 'start_sample_offset': 0,
-         'end_sample_offset': 76800, 'sample_duration': 4.8,
-         'should_exclude': False, 'should_add_padding': False},
-        {**_common, 'id': 14, 'dataset_audio_chunk_group_id': '1',
-         'chunk_part_idx': 1, 'start_sample_offset': 73600,
-         'end_sample_offset': 150400, 'sample_duration': 4.8,
-         'should_exclude': False, 'should_add_padding': False},
-        {**_common, 'id': 15, 'dataset_audio_chunk_group_id': '1',
-         'chunk_part_idx': 2, 'start_sample_offset': 147200,
-         'end_sample_offset': 156959, 'sample_duration': 0.609,
-         'should_exclude': False, 'should_add_padding': True},
-        {**_common, 'id': 1, 'dataset_audio_chunk_group_id': '1',
-         'chunk_part_idx': 0, 'start_sample_offset': 0,
-         'end_sample_offset': 1, 'sample_duration': 0.6,
-         'should_exclude': True, 'should_add_padding': True},
-    ]
-    pd.DataFrame(parquet_data).to_parquet(
+    def _parquet_data(dataset_audio_chunk_group_id: str):
+        return [
+            {**_common, 'id': 13, 'dataset_audio_chunk_group_id': '1',
+            'chunk_part_idx': 0, 'start_sample_offset': 0,
+            'end_sample_offset': 76800, 'sample_duration': 4.8,
+            'should_exclude': False, 'should_add_padding': False},
+            {**_common, 'id': 14, 'dataset_audio_chunk_group_id': '1',
+            'chunk_part_idx': 1, 'start_sample_offset': 73600,
+            'end_sample_offset': 150400, 'sample_duration': 4.8,
+            'should_exclude': False, 'should_add_padding': False},
+            {**_common, 'id': 15, 'dataset_audio_chunk_group_id': '1',
+            'chunk_part_idx': 2, 'start_sample_offset': 147200,
+            'end_sample_offset': 156959, 'sample_duration': 0.609,
+            'should_exclude': False, 'should_add_padding': True},
+            {**_common, 'id': 1, 'dataset_audio_chunk_group_id': '1',
+            'chunk_part_idx': 0, 'start_sample_offset': 0,
+            'end_sample_offset': 1, 'sample_duration': 0.6,
+            'should_exclude': True, 'should_add_padding': True},
+        ]
+    pd.DataFrame(_parquet_data(dataset_audio_chunk_group_id='1')).to_parquet(
         tests_path / 'group_id_1__last_export_1778968883.parquet'
+    )
+    pd.DataFrame(_parquet_data(dataset_audio_chunk_group_id='2')).to_parquet(
+        tests_path / 'group_id_2__last_export_1778999999.parquet'
     )
 
     # ── 3. SQLite database ───────────────────────────────────────────────────
