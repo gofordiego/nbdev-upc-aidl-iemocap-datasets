@@ -215,6 +215,18 @@ class AudioChunksDataset(Dataset):
     def get_labels_emotion_name(self, idx: int) -> str:
         return self.LABELS_EMOTIONS[idx]
 
+    def __getstate__(self):
+        # When a worker process retrieves an item, _get_conn() sees that self.conn is None and safely establishes a fresh SQLite connection local to that worker process.
+        state = self.__dict__.copy()
+        if "conn" in state:
+            state["conn"] = None
+        return state
+
+    def __setstate__(self, state):
+        # These methods intercept the pickling process, set the unpicklable connection to None for serialization, and restore it on the child workers.
+        self.__dict__.update(state)
+        self.conn = None
+
     def _get_conn(self):
         if self.conn is None:
             self.conn = sqlite3.connect(self.db_path)
@@ -529,13 +541,14 @@ class DatasetsFactory:
         hop_length: int,
         win_length: int,
         n_mels: int,
+        *,
         pad_mode: Literal["zero", "windowed_repeat"] = "zero",
         partition_type: Literal["train", "validation", "test"] | None = None,
         speaker_ids_filter: list[str] | None = None,
         should_refresh_local_cache: bool = True,
         emotion_columns_override: list[str] | None = None,
         emotions_merger: Callable | None = None,
-    ):
+    ) -> AudioChunksDataset:
         # Partition type or speaker_ids_filter override validation.
         if partition_type and speaker_ids_filter:
             raise ValueError("`speaker_ids_filter` is not valid when `partition_type` argument is provided")
