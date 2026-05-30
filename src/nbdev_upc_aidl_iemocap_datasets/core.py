@@ -55,16 +55,20 @@ class AudioChunksDataset(Dataset):
 
     TOP_DB = 80
 
+    # Decay windowed repeat audio by a percentage
+    WINDOWED_REPEAT_DECAY = 0.8
+
     def __init__(
         self,
         df_dataset_audio_chunks: pd.DataFrame,
         db_path: Path,
         sample_rate: int,
-       chunk_threshold_seconds: float,
+        chunk_threshold_seconds: float,
         n_fft: int,
         hop_length: int,
         win_length: int,
         n_mels: int,
+        pad_mode: Literal["zero", "windowed_repeat"] = "zero",
         melspec_lib: Literal["torchaudio", "librosa"] = "torchaudio",
         emotion_columns_override: list[str] | None = None
     ):
@@ -76,6 +80,7 @@ class AudioChunksDataset(Dataset):
         self.hop_length = hop_length
         self.win_length = win_length
         self.n_mels = n_mels
+        self.pad_mode = pad_mode
         self.melspec_lib = melspec_lib
 
         self.emotion_columns = AudioChunksDataset.LABELS_EMOTIONS_V1 if emotion_columns_override is None else emotion_columns_override
@@ -165,9 +170,9 @@ class AudioChunksDataset(Dataset):
         end = int(dataset_row["end_sample_offset"])
         sliced_audio = audio_array[start:end]
 
-        # Padding or trimming
+        # Waveform padding
         if len(sliced_audio) < self.maxchunk_sample_frames:
-            sliced_audio = np.pad(sliced_audio, (0, self.maxchunk_sample_frames - len(sliced_audio)))
+            sliced_audio = self._pad_waveform(sliced_audio, source_waveform=audio_array)
 
         assert len(sliced_audio) == self.maxchunk_sample_frames
 
@@ -245,6 +250,29 @@ class AudioChunksDataset(Dataset):
 
         # Join the new columns back to your original DataFrame
         self.df_dataset_audio_chunks = pd.concat([self.original_source_df, new_features_df], axis=1)
+
+    def _pad_waveform(self, sliced_audio: npt.NDArray, source_waveform: npt.NDArray) -> npt.NDArray:
+        # Length of the audio chunk left to be padded.
+        sliced_audio_length = len(sliced_audio)
+        # Produce a new zero-padded array with the expected frame size.
+        padded_waveform = np.pad(sliced_audio, (0, self.maxchunk_sample_frames - sliced_audio_length))
+        if self.pad_mode == "windowed_repeat":
+            padded_waveform = self._pad_with_widowed_repeat(source_waveform, padded_waveform, repeat_start_offset=sliced_audio_length)
+        return padded_waveform
+
+    def _pad_with_widowed_repeat(self, source_waveform: npt.NDArray, padded_waveform: npt.NDArray, repeat_start_offset: int) -> npt.NDArray:
+        chunk_size_left_to_pad = self.maxchunk_sample_frames - repeat_start_offset
+
+        for i in range(chunk_size_left_to_pad):
+            padded_offset = i + repeat_start_offset
+            # Using modulo operator to repeat the source waveform as many times as need.
+            # e.g. We have a 3 second padded_waveform, but our source_waveform is only 1 second long,
+            #      therefore we need to repeat it 2 more times.
+            source_offset = i % len(source_waveform)
+            padded_waveform[padded_offset] = source_waveform[source_offset] * self.WINDOWED_REPEAT_DECAY
+
+        return padded_waveform
+
 
 # %% ../../nbs/00_core.ipynb #67feec8d
 def merge_emotions_by_row_v1(row):
@@ -501,6 +529,7 @@ class DatasetsFactory:
         hop_length: int,
         win_length: int,
         n_mels: int,
+        pad_mode: Literal["zero", "windowed_repeat"] = "zero",
         partition_type: Literal["train", "validation", "test"] | None = None,
         speaker_ids_filter: list[str] | None = None,
         should_refresh_local_cache: bool = True,
@@ -569,6 +598,7 @@ class DatasetsFactory:
             hop_length=hop_length,
             win_length=win_length,
             n_mels=n_mels,
+            pad_mode=pad_mode, 
             emotion_columns_override=emotion_columns_override,
         )
 

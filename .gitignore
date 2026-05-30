@@ -1,5 +1,7 @@
 # nbdev temporary processed notebooks and docs preview
 perf_test.ipynb
+test_noise_samples.html
+test_voice_samples.html
 _proc/
 _docs/
 
