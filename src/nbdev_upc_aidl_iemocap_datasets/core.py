@@ -8,6 +8,7 @@ __all__ = ['AudioChunksDataset', 'merge_emotions_by_row_v1', 'DatasetsFactory']
 # %% ../../nbs/00_core.ipynb #2c374200
 import io
 import json
+import math
 import os
 import requests
 import shutil
@@ -87,7 +88,7 @@ class AudioChunksDataset(Dataset):
 
         self.max_frequency = self.sample_rate / 2
         self.maxchunk_sample_frames = int(chunk_threshold_seconds * sample_rate)
-        self.max_mel_timeframes = self.maxchunk_sample_frames / self.hop_length + 1
+        self.max_mel_timeframes = math.floor(self.maxchunk_sample_frames / self.hop_length) + 1
 
         # Torch audio transforms
         self.mel_spectrogram_transform = T.MelSpectrogram(
@@ -115,9 +116,6 @@ class AudioChunksDataset(Dataset):
         return len(self.df_dataset_audio_chunks)
 
     def __getitem__(self, idx: int):
-        dataset_row = self.df_dataset_audio_chunks.iloc[idx]
-        source_row_index = dataset_row["source_dataset_row_index"]
-
         audio_array, sr = self.get_item_audio_bytes(idx)
 
         if self.melspec_lib == "librosa":
@@ -148,6 +146,7 @@ class AudioChunksDataset(Dataset):
             features = self.amp_to_db_transform(mel_specs[0])
             features = features - features.max()  # now in (-80, 0] like librosa
 
+        dataset_row = self.df_dataset_audio_chunks.iloc[idx]
         labels = self._build_labels_tensor(dataset_row)
 
         assert features.shape[0] == self.n_mels
