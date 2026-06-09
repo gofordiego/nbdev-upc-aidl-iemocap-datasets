@@ -56,6 +56,8 @@ d = { 'settings': {'branch': 'main', 'doc_baseurl': '/', 'doc_host': '', 'git_ur
                                                       'nbdev_upc_aidl_iemocap_datasets.core.DatasetsFactory.get_dataset_audio_chunk_groups': ( 'core.html#datasetsfactory.get_dataset_audio_chunk_groups',
                                                                                                                                                'nbdev_upc_aidl_iemocap_datasets/core.py'),
                                                       'nbdev_upc_aidl_iemocap_datasets.core.merge_emotions_by_row_v1': ( 'core.html#merge_emotions_by_row_v1',
-                                                                                                                         'nbdev_upc_aidl_iemocap_datasets/core.py')},
+                                                                                                                         'nbdev_upc_aidl_iemocap_datasets/core.py'),
+                                                      'nbdev_upc_aidl_iemocap_datasets.core.spec_augment': ( 'core.html#spec_augment',
+                                                                                                             'nbdev_upc_aidl_iemocap_datasets/core.py')},
             'nbdev_upc_aidl_iemocap_datasets.test_utils': { 'nbdev_upc_aidl_iemocap_datasets.test_utils.create_test_fixtures': ( 'test_utils.html#create_test_fixtures',
                                                                                                                                  'nbdev_upc_aidl_iemocap_datasets/test_utils.py')}}}
