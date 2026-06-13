@@ -659,6 +659,9 @@ class DatasetsFactory:
         if enable_spec_augment and partition_type is not None and partition_type != "train":
             raise ValueError("SpecAugment should only be applied to the 'train' split.")
 
+        if pitch_shift_prob > 0 and partition_type is not None and partition_type != "train":
+            raise ValueError("Pitch shift should only be applied to the 'train' split.")
+
         if should_refresh_local_cache:
             self._refresh_json_manifest_and_dataset_audio_chunks()
 
